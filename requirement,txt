@@ -1,0 +1,689 @@
+Clipboard Manager — Requirement
+1. Product Overview
+
+Tên tạm: Clipboard Manager
+
+Ứng dụng desktop đa nền tảng cho phép người dùng:
+
+Tự động lưu lịch sử clipboard.
+Truy cập nhanh clipboard bằng global shortcut.
+Tự động xóa dữ liệu tạm sau thời gian cấu hình.
+Lưu clipboard quan trọng lâu dài.
+Phân nhóm/tag clipboard.
+Tìm kiếm nhanh.
+Theo dõi source ứng dụng đã copy dữ liệu.
+Đồng bộ clipboard giữa nhiều thiết bị thông qua tài khoản.
+Hoạt động offline.
+
+Platform:
+
+Windows
+Linux
+Có thể mở rộng macOS sau.
+2. Core Concepts
+
+Có 3 loại dữ liệu chính:
+
+Temporary
+
+Clipboard tự động lưu khi người dùng Ctrl+C.
+
+Created → Temporary → Expired → Deleted
+
+Ví dụ:
+
+npm install @nestjs/common
+
+Tồn tại 7 ngày rồi tự xóa.
+
+Saved
+
+Người dùng chủ động lưu.
+
+Temporary
+    ↓
+Save
+    ↓
+Saved
+
+Saved không bị expiration.
+
+Pinned
+
+Item quan trọng được pin lên đầu.
+
+📌 PostgreSQL connection string
+📌 Docker command
+📌 API endpoint
+
+Pinned cũng không bị auto-delete.
+
+3. Clipboard Capture
+Functional Requirements
+
+FR-01
+
+Ứng dụng phải tự động phát hiện clipboard thay đổi.
+
+FR-02
+
+Khi clipboard thay đổi, app tạo một ClipboardItem.
+
+FR-03
+
+Hỗ trợ tối thiểu:
+
+Plain text
+Rich text / HTML
+Image
+
+Phase sau:
+
+File
+Multiple files
+
+FR-04
+
+Không tạo duplicate nếu nội dung clipboard giống item gần nhất.
+
+Có thể dùng:
+
+SHA-256(content)
+
+để nhận diện duplicate.
+
+4. Clipboard History
+
+Main screen:
+
+┌──────────────────────────────────────┐
+│ 🔍 Search clipboard...               │
+├──────────────────────────────────────┤
+│ 📌 PostgreSQL command                │
+│    Terminal · 2 min ago              │
+├──────────────────────────────────────┤
+│ 🔗 https://github.com/...            │
+│    Chrome · 10 min ago               │
+├──────────────────────────────────────┤
+│ <code> const user = ...              │
+│    VS Code · 20 min ago              │
+└──────────────────────────────────────┘
+
+Mỗi item hiển thị:
+
+Preview
+Type
+Created time
+Source application
+Source window/title nếu lấy được
+Collection
+Tags
+Saved/Pinned status
+5. Expiration
+
+User có thể cấu hình:
+
+History retention
+
+
+1 hour
+1 day
+3 days
+7 days
+30 days
+Never
+
+Requirement:
+
+FR-05
+
+Item Temporary phải có expiresAt.
+
+FR-06
+
+Background worker định kỳ xóa item hết hạn.
+
+FR-07
+
+Saved/Pinned item không bị expiration.
+
+FR-08
+
+User có thể xóa thủ công bất kỳ item nào.
+
+6. Global Shortcut
+
+Đây là feature rất quan trọng.
+
+Ví dụ mặc định:
+
+Ctrl + Shift + V
+
+→ mở Quick Clipboard.
+
+Không cần mở cửa sổ app chính.
+
+Popup:
+
+┌──────────────────────────────────┐
+│ 🔍 Search...                     │
+├──────────────────────────────────┤
+│ npm install...                   │
+│ https://github.com/...           │
+│ const user = ...                 │
+└──────────────────────────────────┘
+
+Keyboard navigation:
+
+↑ ↓
+Enter → Paste
+Esc   → Close
+
+User có thể đổi shortcut trong Settings.
+
+7. Paste
+
+Khi chọn item:
+
+Enter
+
+app sẽ:
+
+Selected ClipboardItem
+        ↓
+Set OS clipboard
+        ↓
+Simulate paste
+        ↓
+Target application
+
+Có:
+
+Paste
+Paste as plain text
+
+Phase sau:
+
+Paste without formatting
+Paste as Markdown
+8. Search
+
+Search phải hoạt động local-first.
+
+Có thể dùng:
+
+SQLite
++
+FTS5
+
+Search:
+
+docker compose
+
+có thể tìm:
+
+docker compose up -d
+docker-compose.prod.yml
+Docker deployment command
+
+Filter:
+
+All
+Text
+Code
+URL
+Image
+Saved
+Pinned
+
+Phase sau:
+
+Source
+Collection
+Tag
+Date
+9. Collections
+
+User có thể tạo collection:
+
+📁 Work
+📁 Learning
+📁 Personal
+📁 Projects
+
+Một clipboard item:
+
+ClipboardItem
+      │
+      └── Collection
+              └── Work
+
+CRUD:
+
+Create collection
+Rename
+Delete
+Move item
+Remove item khỏi collection
+10. Tags
+
+Ví dụ:
+
+#docker
+#nestjs
+#postgres
+#commands
+#useful
+
+Một item có thể có nhiều tag.
+
+ClipboardItem
+├── Collection: DevOps
+└── Tags:
+    ├── docker
+    └── command
+11. Source Tracking
+
+App cố gắng xác định clipboard được copy từ đâu.
+
+Ví dụ:
+
+VS Code
+Chrome
+Firefox
+Terminal
+Discord
+
+Item:
+
+const user = await prisma.user.findUnique(...)
+
+
+Source:
+VS Code
+
+
+Window:
+auth.service.ts
+
+User có thể filter:
+
+Source → VS Code
+
+Lưu ý: source detection trên Windows/Linux có thể khác nhau tùy môi trường desktop, nên requirement nên ghi là best effort, không đảm bảo 100%.
+
+12. Smart Type Detection
+
+Không cần AI ở MVP.
+
+App tự nhận diện:
+
+https://...
+        ↓
+URL
+
+
+{
+  "name": "Dương"
+}
+        ↓
+JSON
+
+
+npm install ...
+        ↓
+Command
+
+
+const foo = ...
+        ↓
+Code
+
+Các type:
+
+TEXT
+URL
+CODE
+JSON
+COMMAND
+EMAIL
+IMAGE
+FILE
+
+User có thể filter theo type.
+
+13. Secret Detection
+
+Đây là requirement security quan trọng.
+
+Phát hiện pattern như:
+
+API_KEY=
+Bearer ...
+password=
+AWS access key
+private key
+
+Khi phát hiện:
+
+⚠ Sensitive content
+
+
+This clipboard may contain sensitive information.
+
+
+[Don't Save]
+[Save Locally]
+
+Mặc định:
+
+Sensitive item không được sync lên server.
+
+User phải explicitly cho phép.
+
+14. Sync Account
+
+User có thể đăng ký/login.
+
+Desktop
+   ↓
+Login
+   ↓
+Account
+
+Sync:
+
+Windows PC
+      ↕
+    Server
+      ↕
+Linux PC
+
+Đồng bộ:
+
+Saved items
+Collections
+Tags
+Pinned items
+Settings
+
+MVP không nhất thiết sync toàn bộ temporary history.
+
+Tôi khuyên:
+
+Temporary → local only
+Saved → sync
+
+để giảm privacy risk và bandwidth.
+
+15. Offline-first
+
+App phải hoạt động bình thường khi mất mạng.
+
+Internet OFF
+
+
+Ctrl+C
+ ↓
+SQLite
+ ↓
+History vẫn hoạt động
+
+Khi online:
+
+SQLite
+ ↓
+Sync Queue
+ ↓
+API
+ ↓
+Server
+
+Không được yêu cầu server để xem clipboard local.
+
+16. Multi-device
+
+Account có:
+
+Devices
+
+
+💻 Windows PC
+🐧 Ubuntu
+
+User có thể:
+
+xem device
+rename device
+revoke device
+
+Ví dụ:
+
+Settings
+ └── Devices
+
+
+    Windows PC
+    Last active: 2 min ago
+
+
+    Ubuntu
+    Last active: 1 hour ago
+
+
+    [Revoke]
+17. System Tray
+
+App chạy background:
+
+System Tray
+    ↓
+Right click
+
+
+Open Clipboard
+Pause Capture
+Settings
+Quit
+
+Có:
+
+Pause Capture
+
+rất hữu ích khi người dùng không muốn clipboard bị lưu tạm thời.
+
+18. Privacy / Security
+Local
+
+Clipboard database lưu local.
+
+Có setting:
+
+Clear all clipboard history
+Sync
+
+Dữ liệu sync phải được truyền qua HTTPS.
+
+Phase nâng cao:
+
+End-to-End Encryption
+
+Client
+ ↓ encrypt
+Server
+ ↓ encrypted data
+Other Device
+ ↓ decrypt
+User
+
+Server không đọc được clipboard content.
+
+Tính năng này có thể để Phase 2/3, không nên ép vào MVP đầu tiên.
+
+19. Settings
+General
+├── Launch on startup
+├── Start minimized
+├── Global shortcut
+└── Theme
+
+
+Clipboard
+├── Retention period
+├── Maximum history size
+├── Capture images
+├── Capture files
+└── Pause capture
+
+
+Privacy
+├── Secret detection
+├── Sensitive data policy
+└── Clear history
+
+
+Sync
+├── Enable sync
+├── Sync temporary items
+└── Devices
+
+
+Storage
+├── Database location
+├── Current storage
+└── Clear cache
+20. Architecture
+
+Tôi đề xuất:
+
+┌─────────────────────────────────────┐
+│             Tauri 2                 │
+│                                     │
+│  ┌───────────────────────────────┐  │
+│  │ React + TypeScript            │  │
+│  │                               │  │
+│  │ UI / Zustand / TanStack Query │  │
+│  └───────────────┬───────────────┘  │
+│                  │ IPC               │
+│  ┌───────────────▼───────────────┐  │
+│  │ Rust / Tauri Plugins           │  │
+│  │                               │  │
+│  │ Clipboard                     │  │
+│  │ Global Shortcut               │  │
+│  │ Tray                          │  │
+│  │ Window / OS integration       │  │
+│  └───────────────┬───────────────┘  │
+│                  │                   │
+│              SQLite                 │
+│               FTS5                  │
+└──────────────────┼──────────────────┘
+                   │ HTTPS
+                   ▼
+          ┌────────────────────┐
+          │ NestJS API         │
+          │                    │
+          │ Auth               │
+          │ Sync               │
+          │ Devices            │
+          └─────────┬──────────┘
+                    │
+             ┌──────┴──────┐
+             ↓             ↓
+        PostgreSQL       Redis
+21. Tech Stack
+Desktop
+Tauri 2
+React
+TypeScript
+TailwindCSS
+shadcn/ui
+Zustand
+TanStack Query
+Native
+Rust
+Tauri plugins
+Local
+SQLite
+FTS5
+Backend
+NestJS
+Prisma
+PostgreSQL
+Redis
+Infrastructure
+Docker
+Docker Compose
+GitHub Actions
+22. MVP Scope
+
+Tôi sẽ chốt MVP ở đây, không thêm AI/sync ngay:
+
+MVP v1
+ Windows support
+ Linux support
+ Clipboard monitoring
+ Text clipboard
+ Image clipboard
+ Local SQLite
+ Clipboard history
+ Auto expiration
+ Search
+ Pin
+ Save
+ Delete
+ Collections
+ Tags
+ Source detection
+ Global shortcut
+ Quick paste
+ System tray
+ Pause capture
+ Settings
+ Startup
+v1.5
+ URL/code/JSON detection
+ Secret detection
+ Plain-text paste
+ Better source detection
+ File clipboard
+ Keyboard shortcuts nâng cao
+v2
+ Account
+ Cloud sync
+ Multi-device
+ Sync conflict handling
+ Device management
+v3
+ End-to-end encryption
+ OCR
+ AI categorization
+ AI search
+ macOS
+ Mobile companion
+Một quyết định quan trọng
+
+Tôi không khuyên làm account + backend ngay.
+
+Thứ tự tốt nhất là:
+
+                    Phase 1
+                       ↓
+             Tauri + React + SQLite
+                       ↓
+              Clipboard hoạt động
+                       ↓
+                    Phase 2
+                       ↓
+             Search + Collection
+                       ↓
+                    Phase 3
+                       ↓
+            Global shortcut + Tray
+                       ↓
+                    Phase 4
+                       ↓
+              NestJS + PostgreSQL
+                       ↓
+                    Phase 5
+                       ↓
+                    Sync
